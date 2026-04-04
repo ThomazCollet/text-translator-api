@@ -2,17 +2,17 @@ package com.thomazcollet.text_translator_api.enums;
 
 // Representa os idiomas suportados pela aplicação
 public enum Language {
-   EN("en"),
-   PTBR("pt-BR"),
-   ES("es");
+    EN("en"),
+    PT_BR("pt"),
+    ES("es");
 
-   private final String code;
+    private final String libreCode;
 
-    Language(String code){
-    this.code = code;
-   }
+    Language(String libreCode){
+        this.libreCode = libreCode;
+    }
 
-   public String getCode(){
-    return code;
-   }
+    public String getLibreCode(){
+        return libreCode;
+    }
 }

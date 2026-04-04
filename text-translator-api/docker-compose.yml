@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: libretranslate
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    environment:
+      - LT_UPDATE_MODELS=true  # Baixa/atualiza os modelos de tradução ao iniciar
+      - LT_LOAD_ONLY=en,pt,es # Descomente essa linha para carregar rápido APENAS esses idiomas
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local:rw
+
+volumes:
+  libretranslate_models:
