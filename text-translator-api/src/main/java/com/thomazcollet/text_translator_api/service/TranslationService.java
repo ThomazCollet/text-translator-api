@@ -29,8 +29,8 @@ public class TranslationService {
         // Adapta o DTO interno para o formato esperado pela API externa
         LibreTranslateRequest body = new LibreTranslateRequest(
                 request.text(),
-                request.sourceLanguage().getLibreCode().toLowerCase(),
-                request.targetLanguage().getLibreCode().toLowerCase());
+                request.sourceLanguage().getLibreCode(),
+                request.targetLanguage().getLibreCode());
 
         // Chamada à API de tradução
         HttpHeaders headers = new HttpHeaders();
