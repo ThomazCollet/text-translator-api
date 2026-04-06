@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BridgeTranslate</title>
-    <link rel="stylesheet" href="/text-translator-web/css/style.css">
+    <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
 </head>
 
 <body>
@@ -23,31 +24,45 @@
 
     <main class="app-container">
         <section class="translator-box">
-            <select id="source-lang">
-                <option value="AUTO">Detectar Idioma</option>
-                <option value="PT">Português</option>
-                <option value="EN">Inglês</option>
-            </select>
+            <header class="box-header">
+                <select id="source-lang">
+                    <option value="AUTO">Detectar Idioma</option>
+                    <option value="PT">Português</option>
+                    <option value="EN">Inglês</option>
+                    <option value="ES">Espanhol</option>
+                </select>
+                <button type="button" class="btn-audio" id="btn-listen-source" title="Ouvir original">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+            </header>
             <textarea id="input-text" placeholder="Digite aqui..."></textarea>
         </section>
 
         <div class="middle-column">
             <button type="button" id="btn-switch" title="Inverter Idiomas">
-                <i class="fas fa-exchange-alt"></i> </button>
+                <i class="fas fa-exchange-alt"></i>
+            </button>
         </div>
 
         <section class="translator-box">
-            <select id="target-lang">
-                <option value="EN">Inglês</option>
-                <option value="PT">Português</option>
-            </select>
+            <header class="box-header">
+                <select id="target-lang">
+                    <option value="EN">Inglês</option>
+                    <option value="PT">Português</option>
+                    <option value="ES">Espanhol</option>
+                </select>
+                <button type="button" class="btn-audio" id="btn-listen-target" title="Ouvir tradução">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+            </header>
             <textarea id="output-text" placeholder="Tradução..." readonly></textarea>
         </section>
     </main>
 
     <section class="actions-container">
         <button type="button" id="btn-translate">
-            Traduzir <i class="fas fa-sync-alt"></i> </button>
+            Traduzir <i class="fas fa-sync-alt"></i>
+        </button>
     </section>
 
     <footer class="main-footer">
@@ -57,6 +72,8 @@
             <a href="https://github.com/seu-usuario" target="_blank"><i class="fab fa-github"></i></a>
         </div>
     </footer>
+
+    <script src="js/app.js"></script>
 </body>
 
 </html>

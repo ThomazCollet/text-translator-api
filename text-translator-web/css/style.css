@@ -168,3 +168,25 @@ textarea:focus {
 .social-links a:hover {
     color: #38bdf8;
 }
+
+.box-header {
+    display: flex;
+    justify-content: space-between; /* Select na esquerda, Áudio na direita */
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.btn-audio {
+    background: transparent;
+    border: none;
+    color: #64748b; /* Cor discreta */
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: 0.3s;
+    padding: 5px;
+}
+
+.btn-audio:hover {
+    color: #38bdf8; /* Azul neon ao passar o mouse */
+    transform: scale(1.1);
+}
