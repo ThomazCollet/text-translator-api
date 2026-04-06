@@ -4,8 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import com.thomazcollet.text_translator_api.dtos.SpeechRequest;
 import com.thomazcollet.text_translator_api.dtos.SpeechResponse;
