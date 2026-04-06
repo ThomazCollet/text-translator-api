@@ -1,11 +1,62 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>BridgeTranslate</title>
+    <link rel="stylesheet" href="/text-translator-web/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
 </head>
+
 <body>
-    
+
+    <header class="main-header">
+        <div class="logo">
+            <i class="fa-solid fa-language"></i> <span>BridgeTranslate</span>
+        </div>
+        <nav>
+            <span class="badge">v1.0 - Fullstack</span>
+        </nav>
+    </header>
+
+    <main class="app-container">
+        <section class="translator-box">
+            <select id="source-lang">
+                <option value="AUTO">Detectar Idioma</option>
+                <option value="PT">Português</option>
+                <option value="EN">Inglês</option>
+            </select>
+            <textarea id="input-text" placeholder="Digite aqui..."></textarea>
+        </section>
+
+        <div class="middle-column">
+            <button type="button" id="btn-switch" title="Inverter Idiomas">
+                <i class="fas fa-exchange-alt"></i> </button>
+        </div>
+
+        <section class="translator-box">
+            <select id="target-lang">
+                <option value="EN">Inglês</option>
+                <option value="PT">Português</option>
+            </select>
+            <textarea id="output-text" placeholder="Tradução..." readonly></textarea>
+        </section>
+    </main>
+
+    <section class="actions-container">
+        <button type="button" id="btn-translate">
+            Traduzir <i class="fas fa-sync-alt"></i> </button>
+    </section>
+
+    <footer class="main-footer">
+        <p>Desenvolvido por <strong>Seu Nome</strong></p>
+        <div class="social-links">
+            <a href="https://linkedin.com/in/seu-usuario" target="_blank"><i class="fab fa-linkedin"></i></a>
+            <a href="https://github.com/seu-usuario" target="_blank"><i class="fab fa-github"></i></a>
+        </div>
+    </footer>
 </body>
+
 </html>
