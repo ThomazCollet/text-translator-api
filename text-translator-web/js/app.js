@@ -1,49 +1,87 @@
-// Selecionando os elementos do DOM
+// 1. Selecionando os elementos do DOM
 const sourceText = document.getElementById('input-text');
 const targetText = document.getElementById('output-text');
 const sourceLang = document.getElementById('source-lang');
 const targetLang = document.getElementById('target-lang');
 const btnSwitch = document.getElementById('btn-switch');
+const btnTranslate = document.getElementById('btn-translate'); // Selecionando o botão de traduzir
 
+// --- Lógica de Tradução ---
+
+/**
+ * Função principal que coordena a tradução entre UI e API
+ */
+const handleTranslate = async () => {
+    const text = sourceText.value.trim();
+    
+    if (!text) {
+        targetText.value = "";
+        return;
+    }
+
+    // Feedback visual (opcional, mas bom para UX)
+    targetText.placeholder = "Traduzindo...";
+
+    // Chamamos a função que você criou no api.js
+    // Note que usamos os nomes sourceLanguage e targetLanguage para bater com o Java
+    const result = await translateRequest(text, sourceLang.value, targetLang.value);
+
+    if (result && result.translatedText) {
+        targetText.value = result.translatedText;
+    } else {
+        // Caso a API falhe, damos um feedback ao usuário
+        targetText.value = "Erro ao processar tradução.";
+    }
+    
+    targetText.placeholder = "Tradução...";
+};
+
+// --- Event Listeners ---
+
+// Botão de Inverter
 btnSwitch.addEventListener('click', () => {
     const tempLang = sourceLang.value;
     const currentTargetText = targetText.value;
 
-    // 1. Inverter Idiomas (Garantindo que o destino não vire "AUTO")
     if (tempLang !== 'AUTO') {
         sourceLang.value = targetLang.value;
         targetLang.value = tempLang;
     } else {
-        // Se a origem era AUTO, invertemos apenas o que está no destino para a origem
         sourceLang.value = targetLang.value;
-        targetLang.value = 'PT'; // Definimos um padrão (Português) para o novo destino
+        targetLang.value = 'PT'; 
     }
 
-    // 2. Mover o texto da tradução para o campo de entrada
-    // Só movemos se houver algo para mover, senão apenas limpamos
     if (currentTargetText.trim() !== "") {
         sourceText.value = currentTargetText;
-        targetText.value = ""; // Limpa a direita enquanto aguarda a nova tradução
+        targetText.value = ""; 
         
-        // 3. Disparar a tradução (Chamaremos a função da API aqui em breve)
-        console.log("Chamando tradução inversa...");
-        // translateAction(); // <-- Essa função criaremos no api.js
+        // Agora ativamos a tradução automática ao inverter!
+        handleTranslate(); 
     } else {
-        // Se não tinha tradução, apenas inverte o que o usuário já tinha digitado
         const tempInput = sourceText.value;
         sourceText.value = targetText.value;
         targetText.value = tempInput;
     }
 });
 
-// Função para garantir que os idiomas não sejam iguais
+// Botão Traduzir
+btnTranslate.addEventListener('click', handleTranslate);
+
+// Bônus: Traduzir ao apertar Enter (Ctrl + Enter para não quebrar linha)
+sourceText.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        handleTranslate();
+    }
+});
+
+// --- Lógica de Seletores (Sincronização) ---
+
 const handleLanguageChange = (changedElement) => {
     const sourceValue = sourceLang.value;
     const targetValue = targetLang.value;
 
-    // Se a origem for igual ao destino (e não for AUTO)
     if (sourceValue === targetValue && sourceValue !== 'AUTO') {
-        // Se mudamos a ORIGEM para Inglês, o DESTINO vira Português (ou vice-versa)
         if (changedElement === sourceLang) {
             targetLang.value = (sourceValue === 'PT') ? 'EN' : 'PT';
         } else {
@@ -52,6 +90,5 @@ const handleLanguageChange = (changedElement) => {
     }
 };
 
-// Adicionando os "ouvidores" de mudança (Change Events)
 sourceLang.addEventListener('change', () => handleLanguageChange(sourceLang));
 targetLang.addEventListener('change', () => handleLanguageChange(targetLang));
