@@ -25,7 +25,6 @@ public class TextToSpeechService {
 
     public SpeechResponse speech(SpeechRequest request) {
 
-        // 1. Montamos a URL com os parâmetros grudados nela do jeito que a API gosta
         String urlCompleta = String.format(
                 "%s?key=%s&src=%s&hl=%s&c=%s&f=%s&b64=%s",
                 url,

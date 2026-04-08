@@ -1,4 +1,5 @@
 const translateURL = "http://localhost:8080/translate";
+const textToSpeechURL = "http://localhost:8080/speech";
 
 async function translateRequest(text, sourceLanguage, targetLanguage) {
 
@@ -22,4 +23,23 @@ async function translateRequest(text, sourceLanguage, targetLanguage) {
         console.error("Erro na tradução:", response.status);
         return null;
     }
+}
+
+async function speechRequest(textToSpeak, targetLanguage) { 
+    // Note que usei 'textToSpeak' para bater com o nome que está no seu Service Java!
+    const response = await fetch(textToSpeechURL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json' // O Java precisa disso para ler o seu @RequestBody
+        },
+        body: JSON.stringify({
+            textToSpeak, 
+            targetLanguage
+        })
+    });
+
+    if (response.ok) {
+        return await response.json(); // Aqui virá o seu SpeechResponse com o Base64
+    }
+    // ... erro
 }

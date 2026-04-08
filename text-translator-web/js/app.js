@@ -3,42 +3,75 @@ const sourceText = document.getElementById('input-text');
 const targetText = document.getElementById('output-text');
 const sourceLang = document.getElementById('source-lang');
 const targetLang = document.getElementById('target-lang');
+
 const btnSwitch = document.getElementById('btn-switch');
-const btnTranslate = document.getElementById('btn-translate'); // Selecionando o botão de traduzir
+const btnTranslate = document.getElementById('btn-translate');
+
+// AJUSTADO: Usando os IDs exatos que estão no seu HTML
+const btnSpeakSource = document.getElementById('btn-listen-source');
+const btnSpeakTarget = document.getElementById('btn-listen-target');
+
+// Objeto global para tocar o som
+let audioPlayer = new Audio(); 
 
 // --- Lógica de Tradução ---
 
-/**
- * Função principal que coordena a tradução entre UI e API
- */
 const handleTranslate = async () => {
     const text = sourceText.value.trim();
-    
     if (!text) {
         targetText.value = "";
         return;
     }
 
-    // Feedback visual (opcional, mas bom para UX)
     targetText.placeholder = "Traduzindo...";
-
-    // Chamamos a função que você criou no api.js
-    // Note que usamos os nomes sourceLanguage e targetLanguage para bater com o Java
     const result = await translateRequest(text, sourceLang.value, targetLang.value);
 
     if (result && result.translatedText) {
         targetText.value = result.translatedText;
     } else {
-        // Caso a API falhe, damos um feedback ao usuário
         targetText.value = "Erro ao processar tradução.";
     }
-    
     targetText.placeholder = "Tradução...";
 };
 
+/**
+ * Lida com a reprodução de áudio
+ */
+const handleSpeech = async (textArea, langSelect) => {
+    const text = textArea.value.trim();
+    const language = langSelect.value;
+
+    if (!text || language === 'AUTO') {
+        alert("Selecione um idioma para ouvir.");
+        return;
+    }
+
+    const result = await speechRequest(text, language);
+
+    if (result && result.audioBase64) {
+        let base64String = result.audioBase64;
+
+        // Limpeza de segurança: remove espaços ou quebras de linha
+        base64String = base64String.trim().replace(/\s/g, '');
+
+        // Verificação: Adiciona prefixo se não existir
+        if (!base64String.startsWith('data:')) {
+            base64String = `data:audio/mp3;base64,${base64String}`;
+        }
+
+        audioPlayer.src = base64String;
+        
+        audioPlayer.play().catch(e => {
+            console.error("Erro no player:", e);
+            alert("Erro ao reproduzir. Verifique se o texto é muito longo ou se a API Key é válida.");
+        });
+    } else {
+        console.error("Áudio não encontrado na resposta do servidor.");
+    }
+}; // <--- O fechamento correto é aqui!
+
 // --- Event Listeners ---
 
-// Botão de Inverter
 btnSwitch.addEventListener('click', () => {
     const tempLang = sourceLang.value;
     const currentTargetText = targetText.value;
@@ -48,14 +81,12 @@ btnSwitch.addEventListener('click', () => {
         targetLang.value = tempLang;
     } else {
         sourceLang.value = targetLang.value;
-        targetLang.value = 'PT'; 
+        targetLang.value = 'PT_BR'; 
     }
 
     if (currentTargetText.trim() !== "") {
         sourceText.value = currentTargetText;
         targetText.value = ""; 
-        
-        // Agora ativamos a tradução automática ao inverter!
         handleTranslate(); 
     } else {
         const tempInput = sourceText.value;
@@ -64,10 +95,12 @@ btnSwitch.addEventListener('click', () => {
     }
 });
 
-// Botão Traduzir
 btnTranslate.addEventListener('click', handleTranslate);
 
-// Bônus: Traduzir ao apertar Enter (Ctrl + Enter para não quebrar linha)
+// Ouvintes para os botões de áudio
+btnSpeakSource.addEventListener('click', () => handleSpeech(sourceText, sourceLang));
+btnSpeakTarget.addEventListener('click', () => handleSpeech(targetText, targetLang));
+
 sourceText.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.ctrlKey) {
         e.preventDefault();
@@ -75,7 +108,7 @@ sourceText.addEventListener('keydown', (e) => {
     }
 });
 
-// --- Lógica de Seletores (Sincronização) ---
+// --- Lógica de Sincronização de Idiomas ---
 
 const handleLanguageChange = (changedElement) => {
     const sourceValue = sourceLang.value;
@@ -83,9 +116,9 @@ const handleLanguageChange = (changedElement) => {
 
     if (sourceValue === targetValue && sourceValue !== 'AUTO') {
         if (changedElement === sourceLang) {
-            targetLang.value = (sourceValue === 'PT') ? 'EN' : 'PT';
+            targetLang.value = (sourceValue === 'PT_BR') ? 'EN' : 'PT_BR';
         } else {
-            sourceLang.value = (targetValue === 'PT') ? 'EN' : 'PT';
+            sourceLang.value = (targetValue === 'PT_BR') ? 'EN' : 'PT_BR';
         }
     }
 };
