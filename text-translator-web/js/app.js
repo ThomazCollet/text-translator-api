@@ -11,12 +11,15 @@ const btnSpeakSource = document.getElementById('btn-listen-source');
 const btnSpeakTarget = document.getElementById('btn-listen-target');
 
 let audioPlayer = new Audio();
+let debounceTimer; // Variável para controlar o tempo de espera
 
 // --- Lógica de Tradução ---
 
 const handleTranslate = async () => {
-    console.log("Botão clicado! Iniciando tradução...");
+    // Agora que é automático, logs excessivos podem poluir o console, mas mantive para seu debug
+    targetText.classList.add('loading-glow');
     const text = sourceText.value.trim();
+    
     if (!text) {
         targetText.value = "";
         return;
@@ -24,17 +27,14 @@ const handleTranslate = async () => {
 
     targetText.placeholder = "Traduzindo...";
 
-    // Requisição única ao Java
     const result = await translateRequest(text, sourceLang.value, targetLang.value);
     
-    console.log("O que o Java respondeu:", result);
-
     if (result && result.translatedText) {
         targetText.value = result.translatedText;
 
-        // SINCRONIZAÇÃO: Se detectou idioma, atualiza o select
+        // SINCRONIZAÇÃO: Se detectou idioma, atualiza o seletor
         if (result.sourceLanguage && sourceLang.value !== result.sourceLanguage) {
-            console.log("Sincronizando idioma para:", result.sourceLanguage);
+            console.log("Sincronizando idioma detectado:", result.sourceLanguage);
             sourceLang.value = result.sourceLanguage;
             handleLanguageChange(sourceLang);
         }
@@ -44,6 +44,7 @@ const handleTranslate = async () => {
     }
 
     targetText.placeholder = "Tradução...";
+    targetText.classList.remove('loading-glow');
 };
 
 /**
@@ -75,6 +76,17 @@ const handleSpeech = async (textArea, langSelect) => {
 };
 
 // --- Event Listeners ---
+
+// 2. NOVA LOGICA: Debounce para tradução automática
+sourceText.addEventListener('input', () => {
+    // Limpa o timer anterior se o usuário continuar digitando
+    clearTimeout(debounceTimer);
+
+    // Inicia um novo timer de 800ms
+    debounceTimer = setTimeout(() => {
+        handleTranslate();
+    }, 800); 
+});
 
 btnSwitch.addEventListener('click', () => {
     const tempLang = sourceLang.value;
@@ -125,5 +137,12 @@ const handleLanguageChange = (changedElement) => {
     }
 };
 
-sourceLang.addEventListener('change', () => handleLanguageChange(sourceLang));
-targetLang.addEventListener('change', () => handleLanguageChange(targetLang));
+sourceLang.addEventListener('change', () => {
+    handleLanguageChange(sourceLang);
+    handleTranslate(); // Traduz automaticamente se mudar o idioma
+});
+
+targetLang.addEventListener('change', () => {
+    handleLanguageChange(targetLang);
+    handleTranslate(); // Traduz automaticamente se mudar o idioma
+});
