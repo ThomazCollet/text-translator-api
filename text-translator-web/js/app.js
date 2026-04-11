@@ -5,93 +5,127 @@ const sourceLang = document.getElementById('source-lang');
 const targetLang = document.getElementById('target-lang');
 
 const btnSwitch = document.getElementById('btn-switch');
-const btnTranslate = document.getElementById('btn-translate');
-
 const btnSpeakSource = document.getElementById('btn-listen-source');
 const btnSpeakTarget = document.getElementById('btn-listen-target');
 
 let audioPlayer = new Audio();
-let debounceTimer; // Variável para controlar o tempo de espera
+let debounceTimer; // Controle para o Debounce
 
 // --- Lógica de Tradução ---
 
+/**
+ * Realiza a tradução automática com feedback visual
+ */
 const handleTranslate = async () => {
-    // Agora que é automático, logs excessivos podem poluir o console, mas mantive para seu debug
-    targetText.classList.add('loading-glow');
     const text = sourceText.value.trim();
-    
+
+    // Se o campo estiver vazio, limpa a saída e interrompe
     if (!text) {
         targetText.value = "";
         return;
     }
 
+    // Início do feedback visual
+    targetText.classList.add('loading-glow');
     targetText.placeholder = "Traduzindo...";
 
-    const result = await translateRequest(text, sourceLang.value, targetLang.value);
-    
-    if (result && result.translatedText) {
-        targetText.value = result.translatedText;
+    try {
+        const result = await translateRequest(text, sourceLang.value, targetLang.value);
 
-        // SINCRONIZAÇÃO: Se detectou idioma, atualiza o seletor
-        if (result.sourceLanguage && sourceLang.value !== result.sourceLanguage) {
-            console.log("Sincronizando idioma detectado:", result.sourceLanguage);
-            sourceLang.value = result.sourceLanguage;
-            handleLanguageChange(sourceLang);
+        if (result && result.translatedText) {
+            targetText.value = result.translatedText;
+
+            // Sincronização automática caso o idioma seja detectado
+            if (result.sourceLanguage && sourceLang.value !== result.sourceLanguage) {
+                console.log("Idioma detectado e sincronizado:", result.sourceLanguage);
+                sourceLang.value = result.sourceLanguage;
+                handleLanguageChange(sourceLang);
+            }
+        } else {
+            targetText.value = "Erro ao processar tradução.";
         }
-
-    } else {
-        targetText.value = "Erro ao processar tradução.";
+    } catch (error) {
+        console.error("Erro na tradução:", error);
+    } finally {
+        // Fim do feedback visual
+        targetText.placeholder = "Tradução...";
+        targetText.classList.remove('loading-glow');
     }
-
-    targetText.placeholder = "Tradução...";
-    targetText.classList.remove('loading-glow');
 };
 
 /**
- * Lida com a reprodução de áudio
+ * Lida com a geração e reprodução de áudio com bloqueio de botão
  */
-const handleSpeech = async (textArea, langSelect) => {
+const handleSpeech = async (textArea, langSelect, btnElement) => {
     const text = textArea.value.trim();
     const language = langSelect.value;
 
+    // Validação básica
     if (!text || language === 'AUTO') {
         alert("Selecione um idioma para ouvir.");
         return;
     }
 
-    const result = await speechRequest(text, language);
+    // Feedback Visual e Bloqueio (UX)
+    btnElement.style.opacity = "0.5";
+    btnElement.style.cursor = "wait";
+    btnElement.style.pointerEvents = "none";
 
-    if (result && result.audioBase64) {
-        let base64String = result.audioBase64.trim().replace(/\s/g, '');
+    try {
+        const result = await speechRequest(text, language);
 
-        if (!base64String.startsWith('data:')) {
-            base64String = `data:audio/mp3;base64,${base64String}`;
+        if (result && result.audioBase64) {
+            let base64String = result.audioBase64.trim().replace(/\s/g, '');
+            if (!base64String.startsWith('data:')) {
+                base64String = `data:audio/mp3;base64,${base64String}`;
+            }
+            audioPlayer.src = base64String;
+            audioPlayer.play().catch(e => console.error("Erro no player:", e));
+        } else {
+            console.error("Áudio não encontrado na resposta.");
         }
+    } catch (error) {
+        console.error("Erro na requisição de áudio:", error);
+    } finally {
+        // Libera o botão independente do resultado
+        btnElement.style.opacity = "1";
+        btnElement.style.cursor = "pointer";
+        btnElement.style.pointerEvents = "auto";
+    }
+};
 
-        audioPlayer.src = base64String;
-        audioPlayer.play().catch(e => console.error("Erro no player:", e));
-    } else {
-        console.error("Áudio não encontrado na resposta do servidor.");
+/**
+ * Garante que os idiomas de origem e destino não sejam iguais
+ */
+const handleLanguageChange = (changedElement) => {
+    const sourceValue = sourceLang.value;
+    const targetValue = targetLang.value;
+
+    if (sourceValue === targetValue && sourceValue !== 'AUTO') {
+        if (changedElement === sourceLang) {
+            targetLang.value = (sourceValue === 'PT_BR') ? 'EN' : 'PT_BR';
+        } else {
+            sourceLang.value = (targetValue === 'PT_BR') ? 'EN' : 'PT_BR';
+        }
     }
 };
 
 // --- Event Listeners ---
 
-// 2. NOVA LOGICA: Debounce para tradução automática
+// Tradução automática com Debounce de 800ms
 sourceText.addEventListener('input', () => {
-    // Limpa o timer anterior se o usuário continuar digitando
     clearTimeout(debounceTimer);
-
-    // Inicia um novo timer de 800ms
     debounceTimer = setTimeout(() => {
         handleTranslate();
-    }, 800); 
+    }, 800);
 });
 
+// Troca de idiomas e conteúdos entre os cards
 btnSwitch.addEventListener('click', () => {
     const tempLang = sourceLang.value;
     const currentTargetText = targetText.value;
 
+    // Lógica para não deixar o destino como AUTO ao inverter
     if (tempLang !== 'AUTO') {
         sourceLang.value = targetLang.value;
         targetLang.value = tempLang;
@@ -111,10 +145,11 @@ btnSwitch.addEventListener('click', () => {
     }
 });
 
-btnTranslate.addEventListener('click', handleTranslate);
-btnSpeakSource.addEventListener('click', () => handleSpeech(sourceText, sourceLang));
-btnSpeakTarget.addEventListener('click', () => handleSpeech(targetText, targetLang));
+// Reprodução de áudio (Passando o botão para feedback visual)
+btnSpeakSource.addEventListener('click', (e) => handleSpeech(sourceText, sourceLang, e.currentTarget));
+btnSpeakTarget.addEventListener('click', (e) => handleSpeech(targetText, targetLang, e.currentTarget));
 
+// Atalho rápido: Ctrl + Enter para forçar tradução
 sourceText.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.ctrlKey) {
         e.preventDefault();
@@ -122,27 +157,13 @@ sourceText.addEventListener('keydown', (e) => {
     }
 });
 
-// --- Lógica de Sincronização de Idiomas ---
-
-const handleLanguageChange = (changedElement) => {
-    const sourceValue = sourceLang.value;
-    const targetValue = targetLang.value;
-
-    if (sourceValue === targetValue && sourceValue !== 'AUTO') {
-        if (changedElement === sourceLang) {
-            targetLang.value = (sourceValue === 'PT_BR') ? 'EN' : 'PT_BR';
-        } else {
-            sourceLang.value = (targetValue === 'PT_BR') ? 'EN' : 'PT_BR';
-        }
-    }
-};
-
+// Alteração manual de idioma dispara nova tradução
 sourceLang.addEventListener('change', () => {
     handleLanguageChange(sourceLang);
-    handleTranslate(); // Traduz automaticamente se mudar o idioma
+    handleTranslate();
 });
 
 targetLang.addEventListener('change', () => {
     handleLanguageChange(targetLang);
-    handleTranslate(); // Traduz automaticamente se mudar o idioma
+    handleTranslate();
 });
