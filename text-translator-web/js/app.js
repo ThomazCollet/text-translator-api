@@ -7,16 +7,15 @@ const targetLang = document.getElementById('target-lang');
 const btnSwitch = document.getElementById('btn-switch');
 const btnTranslate = document.getElementById('btn-translate');
 
-// AJUSTADO: Usando os IDs exatos que estão no seu HTML
 const btnSpeakSource = document.getElementById('btn-listen-source');
 const btnSpeakTarget = document.getElementById('btn-listen-target');
 
-// Objeto global para tocar o som
-let audioPlayer = new Audio(); 
+let audioPlayer = new Audio();
 
 // --- Lógica de Tradução ---
 
 const handleTranslate = async () => {
+    console.log("Botão clicado! Iniciando tradução...");
     const text = sourceText.value.trim();
     if (!text) {
         targetText.value = "";
@@ -24,13 +23,26 @@ const handleTranslate = async () => {
     }
 
     targetText.placeholder = "Traduzindo...";
+
+    // Requisição única ao Java
     const result = await translateRequest(text, sourceLang.value, targetLang.value);
+    
+    console.log("O que o Java respondeu:", result);
 
     if (result && result.translatedText) {
         targetText.value = result.translatedText;
+
+        // SINCRONIZAÇÃO: Se detectou idioma, atualiza o select
+        if (result.sourceLanguage && sourceLang.value !== result.sourceLanguage) {
+            console.log("Sincronizando idioma para:", result.sourceLanguage);
+            sourceLang.value = result.sourceLanguage;
+            handleLanguageChange(sourceLang);
+        }
+
     } else {
         targetText.value = "Erro ao processar tradução.";
     }
+
     targetText.placeholder = "Tradução...";
 };
 
@@ -49,26 +61,18 @@ const handleSpeech = async (textArea, langSelect) => {
     const result = await speechRequest(text, language);
 
     if (result && result.audioBase64) {
-        let base64String = result.audioBase64;
+        let base64String = result.audioBase64.trim().replace(/\s/g, '');
 
-        // Limpeza de segurança: remove espaços ou quebras de linha
-        base64String = base64String.trim().replace(/\s/g, '');
-
-        // Verificação: Adiciona prefixo se não existir
         if (!base64String.startsWith('data:')) {
             base64String = `data:audio/mp3;base64,${base64String}`;
         }
 
         audioPlayer.src = base64String;
-        
-        audioPlayer.play().catch(e => {
-            console.error("Erro no player:", e);
-            alert("Erro ao reproduzir. Verifique se o texto é muito longo ou se a API Key é válida.");
-        });
+        audioPlayer.play().catch(e => console.error("Erro no player:", e));
     } else {
         console.error("Áudio não encontrado na resposta do servidor.");
     }
-}; // <--- O fechamento correto é aqui!
+};
 
 // --- Event Listeners ---
 
@@ -81,13 +85,13 @@ btnSwitch.addEventListener('click', () => {
         targetLang.value = tempLang;
     } else {
         sourceLang.value = targetLang.value;
-        targetLang.value = 'PT_BR'; 
+        targetLang.value = 'PT_BR';
     }
 
     if (currentTargetText.trim() !== "") {
         sourceText.value = currentTargetText;
-        targetText.value = ""; 
-        handleTranslate(); 
+        targetText.value = "";
+        handleTranslate();
     } else {
         const tempInput = sourceText.value;
         sourceText.value = targetText.value;
@@ -96,8 +100,6 @@ btnSwitch.addEventListener('click', () => {
 });
 
 btnTranslate.addEventListener('click', handleTranslate);
-
-// Ouvintes para os botões de áudio
 btnSpeakSource.addEventListener('click', () => handleSpeech(sourceText, sourceLang));
 btnSpeakTarget.addEventListener('click', () => handleSpeech(targetText, targetLang));
 

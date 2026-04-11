@@ -2,6 +2,7 @@ package com.thomazcollet.text_translator_api.enums;
 
 // Representa os idiomas suportados pela aplicação
 public enum Language {
+    AUTO("auto", "auto"),
     EN("en", "en-us"),
     PT_BR("pt", "pt-br"),
     ES("es", "es-es");
@@ -14,6 +15,15 @@ public enum Language {
         this.voiceRssCode = voiceRssCode;
     }
 
+    public static Language fromLibreCode(String code) {
+    for (Language lang : values()) {
+        if (lang.libreCode.equalsIgnoreCase(code)) {
+            return lang;
+        }
+    }
+    return AUTO; // Fallback caso não encontre
+    }
+
     public String getLibreCode() {
         return libreCode;
     }
@@ -22,3 +32,4 @@ public enum Language {
         return voiceRssCode;
     }
 }
+

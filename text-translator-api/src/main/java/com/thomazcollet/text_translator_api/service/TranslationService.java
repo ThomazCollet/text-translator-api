@@ -5,13 +5,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.HttpHeaders; 
-import org.springframework.http.MediaType;   
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import com.thomazcollet.text_translator_api.dtos.LibreTranslateRequest;
 import com.thomazcollet.text_translator_api.dtos.LibreTranslateResponse;
 import com.thomazcollet.text_translator_api.dtos.TextRequest;
 import com.thomazcollet.text_translator_api.dtos.TextResponse;
+import com.thomazcollet.text_translator_api.enums.Language;
 
 @Service
 public class TranslationService {
@@ -47,11 +48,17 @@ public class TranslationService {
             throw new RuntimeException("Erro ao chamar API de tradução");
         }
 
+        System.out.println("JSON Bruto da API: " + response.getBody());
+
+        Language sourceLanguage = (request.sourceLanguage() == Language.AUTO)
+        ? Language.fromLibreCode(response.getBody().detectedLanguage().language()) // Adicionado .language()
+        : request.sourceLanguage();
+
         // Converte resposta da API externa para o DTO interno da aplicação
         return new TextResponse(
                 request.text(),
                 response.getBody().translatedText(),
-                request.sourceLanguage(),
+                sourceLanguage,
                 request.targetLanguage(),
                 null // Audio ainda não capturado
         );
