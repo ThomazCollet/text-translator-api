@@ -1,4 +1,4 @@
-package com.thomazcollet.text_translator_api.config;
+package com.thomazcollet.text_translator_api.infra.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
