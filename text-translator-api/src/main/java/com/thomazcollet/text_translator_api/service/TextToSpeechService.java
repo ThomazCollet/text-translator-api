@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.thomazcollet.text_translator_api.dtos.SpeechRequest;
 import com.thomazcollet.text_translator_api.dtos.SpeechResponse;
@@ -11,8 +12,9 @@ import com.thomazcollet.text_translator_api.exception.SpeechServiceException;
 import com.thomazcollet.text_translator_api.exception.TextToSpeechLimitException;
 
 /**
- * Serviço especializado na conversão de texto para fala (TTS).
- * Gerencia a integração com a API VoiceRSS e valida os limites operacionais.
+ * Serviço de alta disponibilidade para conversão de texto em fala (TTS).
+ * Implementa integração com o provedor VoiceRSS e gerencia o fluxo de exceções.
+ * * @author Thomaz Collet
  */
 @Service
 public class TextToSpeechService {
@@ -30,38 +32,36 @@ public class TextToSpeechService {
     }
 
     /**
-     * Converte o texto fornecido em uma string Base64 representando o áudio MP3.
-     * @param request DTO com o texto e o idioma alvo.
-     * @return SpeechResponse contendo o Base64 e metadados.
+     * Processa a conversão de texto para áudio via API externa.
      */
     public SpeechResponse speech(SpeechRequest request) {
         
-        // 1. FAIL-FAST: Validação de limite de caracteres para evitar chamadas inúteis
+        // 1. FILOSOFIA FAIL-FAST: Validação prematura para economia de recursos
         if (request.textToSpeak() != null && request.textToSpeak().length() > 1000) {
             throw new TextToSpeechLimitException();
         }
 
         try {
-            // Construção da URL de integração
-            String urlCompleta = String.format(
-                    "%s?key=%s&src=%s&hl=%s&c=%s&f=%s&b64=%s",
-                    url,
-                    apiKey,
-                    request.textToSpeak(),
-                    request.targetLanguage().getVoiceRssCode(),
-                    "MP3",
-                    "22kHz_16bit_mono",
-                    "true");
+            // 2. CONSTRUÇÃO SEGURA DE URI: Uso do fromUriString para maior compatibilidade com a IDE
+            // O Builder garante que espaços e acentos no texto sejam codificados corretamente para a URL
+            String urlCompleta = UriComponentsBuilder.fromUriString(url)
+                    .queryParam("key", apiKey)
+                    .queryParam("src", request.textToSpeak())
+                    .queryParam("hl", request.targetLanguage().getVoiceRssCode())
+                    .queryParam("c", "MP3")
+                    .queryParam("f", "22kHz_16bit_mono")
+                    .queryParam("b64", "true")
+                    .build()
+                    .toUriString();
 
-            // 2. Chamada à API externa
+            // 3. COMUNICAÇÃO EXTERNA
             ResponseEntity<String> response = restTemplate.postForEntity(urlCompleta, null, String.class);
 
-            // Validação de status HTTP e corpo vazio
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new SpeechServiceException("A API de áudio retornou um status de erro: " + response.getStatusCode());
+                throw new SpeechServiceException("Serviço de áudio indisponível. Status: " + response.getStatusCode());
             }
 
-            // A VoiceRSS retorna erros comuns (como chave inválida) dentro do corpo 200 OK começando com "ERROR"
+            // 4. TRATAMENTO DE ERRO DE CONTEÚDO (Regra específica da VoiceRSS)
             if (response.getBody().startsWith("ERROR")) {
                 throw new SpeechServiceException("Erro reportado pelo provedor de voz: " + response.getBody());
             }
@@ -71,11 +71,11 @@ public class TextToSpeechService {
                     request.textToSpeak(),
                     request.targetLanguage());
 
-        } catch (TextToSpeechLimitException e) {
-            // Relança exceções de negócio sem encapsular em erro de infraestrutura
+        } catch (SpeechServiceException | TextToSpeechLimitException e) {
+            // REPASSA EXCEÇÕES DE NEGÓCIO: Crucial para os testes unitários passarem!
             throw e; 
         } catch (Exception e) {
-            // Captura erros de rede, timeout ou parsing e envelopa na exceção de infraestrutura
+            // ENVELOPAMENTO TÉCNICO: Captura erros de rede ou timeout
             throw new SpeechServiceException("Falha crítica na comunicação com o serviço de voz.", e);
         }
     }
