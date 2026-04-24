@@ -35,4 +35,5 @@ public class TranslationController {
         final var response = translationService.translate(request);
         return ResponseEntity.ok(response);
     }
+    
 }
