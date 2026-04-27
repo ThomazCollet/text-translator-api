@@ -3,6 +3,7 @@ package com.thomazcollet.text_translator_api.service;
 import java.util.Collections;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -21,7 +22,8 @@ import com.thomazcollet.text_translator_api.exception.TranslationBridgeException
 
 /**
  * Serviço responsável pela orquestração de traduções de texto.
- * Gerencia traduções diretas e fluxos complexos em ponte para garantir a qualidade do resultado.
+ * Gerencia traduções diretas e fluxos complexos em ponte para garantir a
+ * qualidade do resultado.
  */
 @Service
 public class TranslationService {
@@ -38,6 +40,7 @@ public class TranslationService {
      * Ponto de entrada principal para solicitações de tradução.
      * Aplica o padrão Fail-Fast para validar a integridade dos dados de entrada.
      */
+    @Cacheable(value = "translations", key = "{ #request.text().toLowerCase().trim(), #request.sourceLanguage(), #request.targetLanguage() }", unless = "#result == null")
     public TextResponse translate(TextRequest request) {
         if (request.text() == null || request.text().isBlank()) {
             throw new InvalidTextException();
@@ -47,7 +50,8 @@ public class TranslationService {
     }
 
     /**
-     * Identifica se a tradução requer um idioma intermediário (Inglês) para maior precisão.
+     * Identifica se a tradução requer um idioma intermediário (Inglês) para maior
+     * precisão.
      */
     private boolean needsBridge(TextRequest request) {
         return request.sourceLanguage() != Language.AUTO
@@ -81,17 +85,21 @@ public class TranslationService {
 
     /**
      * Realiza a comunicação de baixo nível com a infraestrutura da API externa.
-     * @throws ExternalApiException em caso de falha de conectividade ou erro do servidor remoto.
+     * 
+     * @throws ExternalApiException em caso de falha de conectividade ou erro do
+     *                              servidor remoto.
      */
     private LibreTranslateResponse callApi(String text, String source, String target) {
         try {
             final var body = new LibreTranslateRequest(text, source, target);
             final var entity = new HttpEntity<>(body, createHeaders());
 
-            ResponseEntity<LibreTranslateResponse> response = restTemplate.postForEntity(url, entity, LibreTranslateResponse.class);
+            ResponseEntity<LibreTranslateResponse> response = restTemplate.postForEntity(url, entity,
+                    LibreTranslateResponse.class);
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new ExternalApiException("A API de tradução retornou um status inesperado: " + response.getStatusCode());
+                throw new ExternalApiException(
+                        "A API de tradução retornou um status inesperado: " + response.getStatusCode());
             }
             return response.getBody();
         } catch (Exception e) {

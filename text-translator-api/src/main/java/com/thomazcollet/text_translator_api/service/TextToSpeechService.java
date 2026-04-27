@@ -1,6 +1,7 @@
 package com.thomazcollet.text_translator_api.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -23,9 +24,9 @@ public class TextToSpeechService {
     private final String url;
     private final String apiKey;
 
-    public TextToSpeechService(RestTemplate restTemplate, 
-                               @Value("${voicerss.api.url}") String url,
-                               @Value("${voicerss.api.key}") String apiKey) {
+    public TextToSpeechService(RestTemplate restTemplate,
+            @Value("${voicerss.api.url}") String url,
+            @Value("${voicerss.api.key}") String apiKey) {
         this.restTemplate = restTemplate;
         this.url = url;
         this.apiKey = apiKey;
@@ -34,16 +35,20 @@ public class TextToSpeechService {
     /**
      * Processa a conversão de texto para áudio via API externa.
      */
+
+    @Cacheable(value = "audio_speech", key = "{ #request.textToSpeak().toLowerCase().trim(), #request.targetLanguage() }", condition = "#request.textToSpeak().length() < 150")
     public SpeechResponse speech(SpeechRequest request) {
-        
+
         // 1. FILOSOFIA FAIL-FAST: Validação prematura para economia de recursos
         if (request.textToSpeak() != null && request.textToSpeak().length() > 1000) {
             throw new TextToSpeechLimitException();
         }
 
         try {
-            // 2. CONSTRUÇÃO SEGURA DE URI: Uso do fromUriString para maior compatibilidade com a IDE
-            // O Builder garante que espaços e acentos no texto sejam codificados corretamente para a URL
+            // 2. CONSTRUÇÃO SEGURA DE URI: Uso do fromUriString para maior compatibilidade
+            // com a IDE
+            // O Builder garante que espaços e acentos no texto sejam codificados
+            // corretamente para a URL
             String urlCompleta = UriComponentsBuilder.fromUriString(url)
                     .queryParam("key", apiKey)
                     .queryParam("src", request.textToSpeak())
@@ -73,7 +78,7 @@ public class TextToSpeechService {
 
         } catch (SpeechServiceException | TextToSpeechLimitException e) {
             // REPASSA EXCEÇÕES DE NEGÓCIO: Crucial para os testes unitários passarem!
-            throw e; 
+            throw e;
         } catch (Exception e) {
             // ENVELOPAMENTO TÉCNICO: Captura erros de rede ou timeout
             throw new SpeechServiceException("Falha crítica na comunicação com o serviço de voz.", e);
