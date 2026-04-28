@@ -1,55 +1,66 @@
-// 1. Selecionando os elementos do DOM
+/**
+ * BRIDGE TRANSLATE - CORE APPLICATION
+ * Gerencia a interface, tradução e síntese de voz.
+ */
+
+// 1. Seleção de elementos do DOM
 const sourceText = document.getElementById('input-text');
 const targetText = document.getElementById('output-text');
 const sourceLang = document.getElementById('source-lang');
 const targetLang = document.getElementById('target-lang');
 
 const btnSwitch = document.getElementById('btn-switch');
+const btnCopyTarget = document.getElementById('btn-copy-target');
 const btnSpeakSource = document.getElementById('btn-listen-source');
 const btnSpeakTarget = document.getElementById('btn-listen-target');
 
+// Configurações globais
 let audioPlayer = new Audio();
-let debounceTimer; 
-let currentTranslateController = null; // --- NOVO: Controle para cancelar requisições ---
+let debounceTimer;
+let currentTranslateController = null;
 
 // --- Lógica de Tradução ---
 
 /**
- * Realiza a tradução automática com feedback visual e cancelamento de requests pendentes
+ * Realiza a tradução automática com feedback visual e cancelamento de requests pendentes.
+ */
+// No topo, selecione o novo elemento
+const loader = document.getElementById('loader');
+
+/**
+ * Realiza a tradução automática com feedback visual e cancelamento de requests pendentes.
  */
 const handleTranslate = async () => {
     const text = sourceText.value.trim();
 
-    // Se o campo estiver vazio, limpa a saída e interrompe
     if (!text) {
         targetText.value = "";
+        loader.style.display = 'none'; // Garante que o loader suma se limpar o texto
         return;
     }
 
-    // --- NOVO: Lógica do Cancelador ---
-    // Se já houver uma requisição de tradução voando, a gente cancela ela aqui
     if (currentTranslateController) {
         currentTranslateController.abort();
     }
-    // Criamos um novo controlador para a requisição atual
     currentTranslateController = new AbortController();
     const signal = currentTranslateController.signal;
-    // ----------------------------------
 
-    // Início do feedback visual
+    // INÍCIO DO FEEDBACK VISUAL
     targetText.classList.add('loading-glow');
-    targetText.placeholder = "Traduzindo...";
+    loader.style.display = 'flex'; // Mostra os pontinhos
+    document.body.classList.add('waiting'); // Cursor de loading
+
+    if (!targetText.value) {
+        targetText.placeholder = "Traduzindo...";
+    }
 
     try {
-        // IMPORTANTE: Passe o 'signal' para a sua função translateRequest (ajuste ela se necessário)
         const result = await translateRequest(text, sourceLang.value, targetLang.value, signal);
 
         if (result && result.translatedText) {
             targetText.value = result.translatedText;
 
-            // Sincronização automática caso o idioma seja detectado
             if (result.sourceLanguage && sourceLang.value !== result.sourceLanguage) {
-                console.log("Idioma detectado e sincronizado:", result.sourceLanguage);
                 sourceLang.value = result.sourceLanguage;
                 handleLanguageChange(sourceLang);
                 handleTranslate();
@@ -58,24 +69,50 @@ const handleTranslate = async () => {
             targetText.value = "Erro ao processar tradução.";
         }
     } catch (error) {
-        // Se o erro for apenas o cancelamento, não fazemos nada (UX limpa)
-        if (error.name === 'AbortError') {
-            console.log("Requisição anterior cancelada.");
-            return; 
-        }
+        if (error.name === 'AbortError') return;
         console.error("Erro na tradução:", error);
     } finally {
-        // Só removemos o feedback visual se esta for a requisição mais recente
         if (!signal.aborted) {
-            targetText.placeholder = "Tradução...";
+            // FIM DO FEEDBACK VISUAL
+            targetText.placeholder = "...";
             targetText.classList.remove('loading-glow');
+            loader.style.display = 'none'; // Esconde os pontinhos
+            document.body.classList.remove('waiting'); // Cursor volta ao normal
             currentTranslateController = null;
         }
     }
 };
 
+// --- Lógica de Interface & Utilidades ---
+
 /**
- * Lida com a geração e reprodução de áudio com bloqueio de botão
+ * Copia o texto traduzido para o clipboard com feedback visual de sucesso.
+ */
+const handleCopy = async () => {
+    const text = targetText.value.trim();
+
+    // Impede cópia se não houver conteúdo válido
+    if (!text || text === "...") return;
+
+    try {
+        await navigator.clipboard.writeText(text);
+
+        // Feedback visual: Troca ícone e cor
+        btnCopyTarget.classList.add('btn-copy-success');
+        const icon = btnCopyTarget.querySelector('i');
+        icon.classList.replace('fa-copy', 'fa-check');
+
+        setTimeout(() => {
+            btnCopyTarget.classList.remove('btn-copy-success');
+            icon.classList.replace('fa-check', 'fa-copy');
+        }, 2000);
+    } catch (err) {
+        console.error('Falha ao copiar:', err);
+    }
+};
+
+/**
+ * Lida com a geração e reprodução de áudio (TTS).
  */
 const handleSpeech = async (textArea, langSelect, btnElement) => {
     const text = textArea.value.trim();
@@ -86,8 +123,8 @@ const handleSpeech = async (textArea, langSelect, btnElement) => {
         return;
     }
 
+    // Lock temporário do botão
     btnElement.style.opacity = "0.5";
-    btnElement.style.cursor = "wait";
     btnElement.style.pointerEvents = "none";
 
     try {
@@ -100,30 +137,24 @@ const handleSpeech = async (textArea, langSelect, btnElement) => {
             }
             audioPlayer.src = base64String;
             audioPlayer.play().catch(e => console.error("Erro no player:", e));
-        } else {
-            console.error("Áudio não encontrado na resposta.");
         }
     } catch (error) {
         console.error("Erro na requisição de áudio:", error);
     } finally {
         btnElement.style.opacity = "1";
-        btnElement.style.cursor = "pointer";
         btnElement.style.pointerEvents = "auto";
     }
 };
 
 /**
- * Garante que os idiomas de origem e destino não sejam iguais
+ * Garante a consistência entre idioma de origem e destino.
  */
 const handleLanguageChange = (changedElement) => {
-    const sourceValue = sourceLang.value;
-    const targetValue = targetLang.value;
-
-    if (sourceValue === targetValue && sourceValue !== 'AUTO') {
+    if (sourceLang.value === targetLang.value && sourceLang.value !== 'AUTO') {
         if (changedElement === sourceLang) {
-            targetLang.value = (sourceValue === 'PT_BR') ? 'EN' : 'PT_BR';
+            targetLang.value = (sourceLang.value === 'PT_BR') ? 'EN' : 'PT_BR';
         } else {
-            sourceLang.value = (targetValue === 'PT_BR') ? 'EN' : 'PT_BR';
+            sourceLang.value = (targetLang.value === 'PT_BR') ? 'EN' : 'PT_BR';
         }
     }
 };
@@ -132,22 +163,15 @@ const handleLanguageChange = (changedElement) => {
 
 sourceText.addEventListener('input', () => {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-        handleTranslate();
-    }, 800);
+    debounceTimer = setTimeout(handleTranslate, 800);
 });
 
 btnSwitch.addEventListener('click', () => {
     const tempLang = sourceLang.value;
     const currentTargetText = targetText.value;
 
-    if (tempLang !== 'AUTO') {
-        sourceLang.value = targetLang.value;
-        targetLang.value = tempLang;
-    } else {
-        sourceLang.value = targetLang.value;
-        targetLang.value = 'PT_BR';
-    }
+    sourceLang.value = (tempLang !== 'AUTO') ? targetLang.value : targetLang.value;
+    targetLang.value = (tempLang !== 'AUTO') ? tempLang : 'PT_BR';
 
     if (currentTargetText.trim() !== "") {
         sourceText.value = currentTargetText;
@@ -160,15 +184,10 @@ btnSwitch.addEventListener('click', () => {
     }
 });
 
+btnCopyTarget.addEventListener('click', handleCopy);
+
 btnSpeakSource.addEventListener('click', (e) => handleSpeech(sourceText, sourceLang, e.currentTarget));
 btnSpeakTarget.addEventListener('click', (e) => handleSpeech(targetText, targetLang, e.currentTarget));
-
-sourceText.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        handleTranslate();
-    }
-});
 
 sourceLang.addEventListener('change', () => {
     handleLanguageChange(sourceLang);
@@ -178,4 +197,12 @@ sourceLang.addEventListener('change', () => {
 targetLang.addEventListener('change', () => {
     handleLanguageChange(targetLang);
     handleTranslate();
+});
+
+// Suporte para atalho Ctrl+Enter para traduzir manualmente
+sourceText.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        handleTranslate();
+    }
 });
