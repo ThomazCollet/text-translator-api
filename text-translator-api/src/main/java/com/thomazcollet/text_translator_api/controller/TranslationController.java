@@ -13,7 +13,10 @@ import com.thomazcollet.text_translator_api.service.TranslationService;
 import jakarta.validation.Valid;
 
 /**
- * Controller responsável por expor os endpoints de tradução.
+ * Controller responsável por expor os recursos de tradução da API.
+ * Atua como ponto de entrada para as requisições, garantindo a validação dos
+ * dados
+ * antes do processamento.
  */
 @RestController
 @RequestMapping("/translate")
@@ -26,14 +29,14 @@ public class TranslationController {
     }
 
     /**
-     * Endpoint para tradução de textos entre idiomas suportados.
-     * @param request Objeto contendo o texto, idioma de origem e destino.
-     * @return ResponseEntity contendo o corpo da tradução e status 200 OK.
+     * Processa solicitações de tradução de texto.
+     * * @param request DTO contendo o texto e os idiomas (Source/Target).
+     * 
+     * @return ResponseEntity contendo os dados da tradução e status HTTP 200.
      */
     @PostMapping
     public ResponseEntity<TextResponse> translate(@RequestBody @Valid TextRequest request) {
-        final var response = translationService.translate(request);
+        var response = translationService.translate(request);
         return ResponseEntity.ok(response);
     }
-    
 }

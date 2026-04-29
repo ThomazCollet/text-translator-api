@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -18,13 +19,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import com.thomazcollet.text_translator_api.dtos.SpeechRequest;
-import com.thomazcollet.text_translator_api.dtos.SpeechResponse;
 import com.thomazcollet.text_translator_api.enums.Language;
 import com.thomazcollet.text_translator_api.exception.SpeechServiceException;
 import com.thomazcollet.text_translator_api.exception.TextToSpeechLimitException;
 
 @ExtendWith(MockitoExtension.class)
-public class TextToSpeechServiceTest {
+@DisplayName("Testes do Serviço de Text-to-Speech")
+class TextToSpeechServiceTest {
 
     @Mock
     private RestTemplate restTemplate;
@@ -37,107 +38,70 @@ public class TextToSpeechServiceTest {
 
     @BeforeEach
     void setup() {
-        // Injetamos os mocks e os valores fake de URL e KEY
         service = new TextToSpeechService(restTemplate, MOCK_URL, MOCK_KEY);
-
-        // Request padrão para os testes
         standardRequest = new SpeechRequest("Olá mundo", Language.PT_BR);
     }
 
     @Test
+    @DisplayName("Deve retornar áudio em Base64 quando a API responder com sucesso")
     void shouldReturnSpeechResponseWhenApiCallIsSuccessful() {
-        // --- ARRANGE ---
-        String fakeBase64 = "U29tZSBmYWtlIGF1ZGlvIGNvbnRlbnQ="; // Representa um áudio fictício
-        ResponseEntity<String> fakeEntity = new ResponseEntity<>(fakeBase64, HttpStatus.OK);
+        var fakeBase64 = "U29tZSBmYWtlIGF1ZGlvIGNvbnRlbnQ=";
+        var fakeEntity = new ResponseEntity<>(fakeBase64, HttpStatus.OK);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(String.class)))
                 .thenReturn(fakeEntity);
 
-        // --- ACT ---
-        SpeechResponse response = service.speech(standardRequest);
+        var response = service.speech(standardRequest);
 
-        // --- ASSERT ---
         assertNotNull(response.audioBase64());
         assertEquals("Olá mundo", response.spokenText());
         assertEquals(Language.PT_BR, response.targetLanguage());
     }
 
     @Test
+    @DisplayName("Deve lançar TextToSpeechLimitException quando o texto exceder 1000 caracteres")
     void shouldThrowLimitExceptionWhenTextIsTooLong() {
-        // --- ARRANGE ---
-        // Criando um texto com 1001 caracteres para estourar o limite
-        String longText = "a".repeat(1001);
-        SpeechRequest longRequest = new SpeechRequest(longText, Language.EN);
+        var longText = "a".repeat(1001);
+        var longRequest = new SpeechRequest(longText, Language.EN);
 
-        // --- ACT & ASSERT ---
-        assertThrows(TextToSpeechLimitException.class, () -> {
-            service.speech(longRequest);
-        });
+        assertThrows(TextToSpeechLimitException.class, () -> service.speech(longRequest));
     }
 
     @Test
+    @DisplayName("Deve lançar SpeechServiceException quando o provedor retornar uma String de erro")
     void shouldThrowSpeechServiceExceptionWhenApiReturnsErrorString() {
-        // --- ARRANGE ---
-        // A VoiceRSS retorna 200 OK mas com a palavra ERROR no corpo em caso de falha
-        // de chave
-        String errorBody = "ERROR: The API key is invalid";
-        ResponseEntity<String> fakeEntity = new ResponseEntity<>(errorBody, HttpStatus.OK);
+        var errorBody = "ERROR: The API key is invalid";
+        var fakeEntity = new ResponseEntity<>(errorBody, HttpStatus.OK);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(String.class)))
                 .thenReturn(fakeEntity);
 
-        // --- ACT & ASSERT ---
-        SpeechServiceException ex = assertThrows(SpeechServiceException.class, () -> {
-            service.speech(standardRequest);
-        });
-
-        // Verificamos se a mensagem de erro que você configurou no Service está lá
-        assertEquals("Erro reportado pelo provedor de voz: ERROR: The API key is invalid", ex.getMessage());
+        var ex = assertThrows(SpeechServiceException.class, () -> service.speech(standardRequest));
+        
+        // MENSAGEM ATUALIZADA:
+        assertEquals("Erro do provedor VoiceRSS: ERROR: The API key is invalid", ex.getMessage());
     }
 
     @Test
+    @DisplayName("Deve lançar SpeechServiceException quando o status HTTP for erro")
     void shouldThrowSpeechServiceExceptionWhenHttpStatusCodeIsError() {
-        // --- ARRANGE ---
-        // Simulando um erro de infraestrutura (Ex: 404 ou 500)
         ResponseEntity<String> errorEntity = new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
 
         when(restTemplate.postForEntity(anyString(), any(), eq(String.class)))
                 .thenReturn(errorEntity);
 
-        // --- ACT & ASSERT ---
-        assertThrows(SpeechServiceException.class, () -> {
-            service.speech(standardRequest);
-        });
+        assertThrows(SpeechServiceException.class, () -> service.speech(standardRequest));
     }
 
     @Test
+    @DisplayName("Deve lançar SpeechServiceException em caso de falha técnica de rede")
     void shouldThrowSpeechServiceExceptionWhenNetworkFails() {
-        // --- ARRANGE ---
-        // Simulando uma queda de rede/timeout (lançando uma exceção genérica)
         when(restTemplate.postForEntity(anyString(), any(), eq(String.class)))
                 .thenThrow(new RuntimeException("Connection timed out"));
 
-        // --- ACT & ASSERT ---
-        SpeechServiceException ex = assertThrows(SpeechServiceException.class, () -> {
-            service.speech(standardRequest);
-        });
-
-        assertEquals("Falha crítica na comunicação com o serviço de voz.", ex.getMessage());
-    }
-
-    @Test
-    @org.junit.jupiter.api.Disabled("Funcionalidade de configuração customizada de áudio ainda não implementada no Service")
-    void shouldThrowInvalidAudioConfigExceptionWhenParamsAreIncompatible() {
-        // --- ARRANGE ---
-        // Simulando um cenário futuro onde o usuário poderia escolher um codec não
-        // suportado
-        SpeechRequest incompatibleRequest = new SpeechRequest("Teste", Language.PT_BR);
-
-        // --- ACT & ASSERT ---
-        // Por enquanto, como o Service não valida isso dinamicamente, o teste fica
-        // desativado
-        assertThrows(com.thomazcollet.text_translator_api.exception.InvalidAudioConfigException.class, () -> {
-            service.speech(incompatibleRequest);
-        });
+        var ex = assertThrows(SpeechServiceException.class, () -> service.speech(standardRequest));
+        
+        // MENSAGEM ATUALIZADA:
+        assertEquals("Falha técnica ao gerar síntese de voz.", ex.getMessage());
     }
 }

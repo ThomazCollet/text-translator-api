@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Serviço de Tradução Offline
   libretranslate:
     image: libretranslate/libretranslate:latest
     container_name: libretranslate
@@ -8,10 +9,19 @@ services:
       - "5000:5000"
     restart: unless-stopped
     environment:
-      - LT_UPDATE_MODELS=true  # Baixa/atualiza os modelos de tradução ao iniciar
-      - LT_LOAD_ONLY=en,pt,es # Descomente essa linha para carregar rápido APENAS esses idiomas
+      - LT_UPDATE_MODELS=true
+      - LT_LOAD_ONLY=en,pt,es
     volumes:
       - libretranslate_models:/home/libretranslate/.local:rw
+
+  # Serviço de Cache
+  redis:
+    image: redis:7-alpine
+    container_name: translator_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning # Persistência leve
 
 volumes:
   libretranslate_models:

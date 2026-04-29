@@ -2,7 +2,6 @@ package com.thomazcollet.text_translator_api.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -13,62 +12,48 @@ import com.thomazcollet.text_translator_api.exception.SpeechServiceException;
 import com.thomazcollet.text_translator_api.exception.TextToSpeechLimitException;
 
 /**
- * Serviço de alta disponibilidade para conversão de texto em fala (TTS).
- * Implementa integração com o provedor VoiceRSS e gerencia o fluxo de exceções.
- * * @author Thomaz Collet
+ * Serviço para conversão de texto em fala (TTS) utilizando VoiceRSS.
+ * Gerencia a comunicação externa e o cache de áudios curtos.
  */
 @Service
 public class TextToSpeechService {
+
+    private static final String CACHE_NAME = "audio_speech";
+    private static final int CACHE_LIMIT = 150;
+    private static final int TEXT_LIMIT = 1000;
 
     private final RestTemplate restTemplate;
     private final String url;
     private final String apiKey;
 
     public TextToSpeechService(RestTemplate restTemplate,
-            @Value("${voicerss.api.url}") String url,
-            @Value("${voicerss.api.key}") String apiKey) {
+                               @Value("${voicerss.api.url}") String url,
+                               @Value("${voicerss.api.key}") String apiKey) {
         this.restTemplate = restTemplate;
         this.url = url;
         this.apiKey = apiKey;
     }
 
     /**
-     * Processa a conversão de texto para áudio via API externa.
+     * Converte texto em áudio Base64. 
+     * Áudios com menos de 150 caracteres são cacheados para otimizar performance.
      */
-
-    @Cacheable(value = "audio_speech", key = "{ #request.textToSpeak().toLowerCase().trim(), #request.targetLanguage() }", condition = "#request.textToSpeak().length() < 150")
+    @Cacheable(value = CACHE_NAME, 
+               key = "{ #request.textToSpeak().toLowerCase().trim(), #request.targetLanguage() }", 
+               condition = "#request.textToSpeak().length() < " + CACHE_LIMIT)
     public SpeechResponse speech(SpeechRequest request) {
-
-        // 1. FILOSOFIA FAIL-FAST: Validação prematura para economia de recursos
-        if (request.textToSpeak() != null && request.textToSpeak().length() > 1000) {
-            throw new TextToSpeechLimitException();
-        }
+        validateLimits(request);
 
         try {
-            // 2. CONSTRUÇÃO SEGURA DE URI: Uso do fromUriString para maior compatibilidade
-            // com a IDE
-            // O Builder garante que espaços e acentos no texto sejam codificados
-            // corretamente para a URL
-            String urlCompleta = UriComponentsBuilder.fromUriString(url)
-                    .queryParam("key", apiKey)
-                    .queryParam("src", request.textToSpeak())
-                    .queryParam("hl", request.targetLanguage().getVoiceRssCode())
-                    .queryParam("c", "MP3")
-                    .queryParam("f", "22kHz_16bit_mono")
-                    .queryParam("b64", "true")
-                    .build()
-                    .toUriString();
-
-            // 3. COMUNICAÇÃO EXTERNA
-            ResponseEntity<String> response = restTemplate.postForEntity(urlCompleta, null, String.class);
+            var urlCompleta = buildUri(request);
+            var response = restTemplate.postForEntity(urlCompleta, null, String.class);
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new SpeechServiceException("Serviço de áudio indisponível. Status: " + response.getStatusCode());
+                throw new SpeechServiceException("Serviço de voz indisponível. Status: " + response.getStatusCode());
             }
 
-            // 4. TRATAMENTO DE ERRO DE CONTEÚDO (Regra específica da VoiceRSS)
             if (response.getBody().startsWith("ERROR")) {
-                throw new SpeechServiceException("Erro reportado pelo provedor de voz: " + response.getBody());
+                throw new SpeechServiceException("Erro do provedor VoiceRSS: " + response.getBody());
             }
 
             return new SpeechResponse(
@@ -77,11 +62,27 @@ public class TextToSpeechService {
                     request.targetLanguage());
 
         } catch (SpeechServiceException | TextToSpeechLimitException e) {
-            // REPASSA EXCEÇÕES DE NEGÓCIO: Crucial para os testes unitários passarem!
             throw e;
         } catch (Exception e) {
-            // ENVELOPAMENTO TÉCNICO: Captura erros de rede ou timeout
-            throw new SpeechServiceException("Falha crítica na comunicação com o serviço de voz.", e);
+            throw new SpeechServiceException("Falha técnica ao gerar síntese de voz.", e);
         }
+    }
+
+    private void validateLimits(SpeechRequest request) {
+        if (request.textToSpeak() != null && request.textToSpeak().length() > TEXT_LIMIT) {
+            throw new TextToSpeechLimitException();
+        }
+    }
+
+    private String buildUri(SpeechRequest request) {
+        return UriComponentsBuilder.fromUriString(url)
+                .queryParam("key", apiKey)
+                .queryParam("src", request.textToSpeak())
+                .queryParam("hl", request.targetLanguage().getVoiceRssCode())
+                .queryParam("c", "MP3")
+                .queryParam("f", "22kHz_16bit_mono")
+                .queryParam("b64", "true")
+                .build()
+                .toUriString();
     }
 }

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,9 +25,11 @@ import com.thomazcollet.text_translator_api.service.TextToSpeechService;
 
 /**
  * Testes de unidade para o TextToSpeechController.
- * Garante que o áudio em Base64 e os erros de integração externa sejam tratados.
+ * Valida a exposição do endpoint de áudio e o tratamento de erros de integração.
  */
-    @WebMvcTest({TextToSpeechController.class, GlobalExceptionHandler.class})
+@WebMvcTest(controllers = TextToSpeechController.class)
+@Import(GlobalExceptionHandler.class)
+@DisplayName("Testes do Controller de Voz")
 class TextToSpeechControllerTest {
 
     @MockitoBean
@@ -41,13 +44,11 @@ class TextToSpeechControllerTest {
     @Test
     @DisplayName("Deve retornar 200 e o áudio em Base64 quando a conversão for bem-sucedida")
     void shouldReturnOkWhenSpeechConversionIsSuccessful() throws Exception {
-        // ARRANGE
         var request = new SpeechRequest("Texto para voz", Language.PT_BR);
         var response = new SpeechResponse("U0m3Base64String...", "Texto para voz", Language.PT_BR);
 
         when(service.speech(any(SpeechRequest.class))).thenReturn(response);
 
-        // ACT & ASSERT
         mockMvc.perform(post("/speech")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -58,16 +59,14 @@ class TextToSpeechControllerTest {
     }
 
     @Test
-    @DisplayName("Deve retornar 502 Bad Gateway quando o serviço externo de voz falhar")
+    @DisplayName("Deve retornar 502 Bad Gateway quando o serviço externo de voz reportar erro")
     void shouldReturnBadGatewayWhenVoiceProviderFails() throws Exception {
-        // ARRANGE
         var request = new SpeechRequest("Hello", Language.EN);
-        String errorMessage = "Erro no provedor VoiceRSS";
+        var errorMessage = "Erro no provedor VoiceRSS";
 
         when(service.speech(any(SpeechRequest.class)))
                 .thenThrow(new SpeechServiceException(errorMessage));
 
-        // ACT & ASSERT
         mockMvc.perform(post("/speech")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))

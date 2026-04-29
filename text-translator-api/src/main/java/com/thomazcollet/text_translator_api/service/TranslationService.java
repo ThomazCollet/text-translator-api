@@ -1,6 +1,7 @@
 package com.thomazcollet.text_translator_api.service;
 
 import java.util.Collections;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -21,13 +22,14 @@ import com.thomazcollet.text_translator_api.exception.InvalidTextException;
 import com.thomazcollet.text_translator_api.exception.TranslationBridgeException;
 
 /**
- * Serviço responsável pela orquestração de traduções de texto.
- * Gerencia traduções diretas e fluxos complexos em ponte para garantir a
- * qualidade do resultado.
+ * Serviço de orquestração de traduções.
+ * Implementa cache distribuído e estratégia de tradução em ponte para idiomas periféricos.
  */
 @Service
 public class TranslationService {
 
+    private static final String CACHE_NAME = "translations";
+    
     private final RestTemplate restTemplate;
     private final String url;
 
@@ -37,22 +39,24 @@ public class TranslationService {
     }
 
     /**
-     * Ponto de entrada principal para solicitações de tradução.
-     * Aplica o padrão Fail-Fast para validar a integridade dos dados de entrada.
+     * Realiza a tradução de um texto. 
+     * Utiliza Redis para cachear resultados e evitar chamadas repetitivas à API externa.
      */
-    @Cacheable(value = "translations", key = "{ #request.text().toLowerCase().trim(), #request.sourceLanguage(), #request.targetLanguage() }", unless = "#result == null")
+    @Cacheable(value = CACHE_NAME, key = "{ #request.text().toLowerCase().trim(), #request.sourceLanguage(), #request.targetLanguage() }", unless = "#result == null")
     public TextResponse translate(TextRequest request) {
+        validateRequest(request);
+
+        return needsBridge(request) 
+            ? bridgeTranslate(request) 
+            : simpleTranslate(request);
+    }
+
+    private void validateRequest(TextRequest request) {
         if (request.text() == null || request.text().isBlank()) {
             throw new InvalidTextException();
         }
-
-        return needsBridge(request) ? bridgeTranslate(request) : simpleTranslate(request);
     }
 
-    /**
-     * Identifica se a tradução requer um idioma intermediário (Inglês) para maior
-     * precisão.
-     */
     private boolean needsBridge(TextRequest request) {
         return request.sourceLanguage() != Language.AUTO
                 && request.sourceLanguage() != Language.EN
@@ -60,7 +64,7 @@ public class TranslationService {
     }
 
     private TextResponse simpleTranslate(TextRequest request) {
-        final var response = callApi(
+        var response = callApi(
                 request.text(),
                 request.sourceLanguage().getLibreCode(),
                 request.targetLanguage().getLibreCode());
@@ -68,62 +72,60 @@ public class TranslationService {
         return buildResponse(request, response);
     }
 
-    /**
-     * Executa a estratégia de tradução em dois estágios (Origem -> EN -> Destino).
-     * Garante a rastreabilidade do erro caso um dos estágios falhe.
-     */
     private TextResponse bridgeTranslate(TextRequest request) {
         try {
-            final var firstStep = callApi(request.text(), request.sourceLanguage().getLibreCode(), "en");
-            final var secondStep = callApi(firstStep.translatedText(), "en", request.targetLanguage().getLibreCode());
+            // Estágio 1: Origem -> Inglês
+            var toEnglish = callApi(request.text(), request.sourceLanguage().getLibreCode(), Language.EN.getLibreCode());
+            
+            // Estágio 2: Inglês -> Destino
+            var toTarget = callApi(toEnglish.translatedText(), Language.EN.getLibreCode(), request.targetLanguage().getLibreCode());
 
-            return buildResponse(request, secondStep);
+            return buildResponse(request, toTarget);
         } catch (ExternalApiException e) {
-            throw new TranslationBridgeException("Falha na orquestração da tradução em dois estágios.", e);
+            throw new TranslationBridgeException("Falha na orquestração da tradução via ponte (EN).", e);
         }
     }
 
     /**
-     * Realiza a comunicação de baixo nível com a infraestrutura da API externa.
-     * 
-     * @throws ExternalApiException em caso de falha de conectividade ou erro do
-     *                              servidor remoto.
+     * Comunicação direta com o servidor de tradução.
      */
     private LibreTranslateResponse callApi(String text, String source, String target) {
         try {
-            final var body = new LibreTranslateRequest(text, source, target);
-            final var entity = new HttpEntity<>(body, createHeaders());
+            var body = new LibreTranslateRequest(text, source, target);
+            var entity = new HttpEntity<>(body, createHeaders());
 
-            ResponseEntity<LibreTranslateResponse> response = restTemplate.postForEntity(url, entity,
-                    LibreTranslateResponse.class);
+            ResponseEntity<LibreTranslateResponse> response = restTemplate.postForEntity(url, entity, LibreTranslateResponse.class);
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new ExternalApiException(
-                        "A API de tradução retornou um status inesperado: " + response.getStatusCode());
+                throw new ExternalApiException("API externa retornou status: " + response.getStatusCode());
             }
             return response.getBody();
         } catch (Exception e) {
-            throw new ExternalApiException("Falha crítica na comunicação com o serviço de tradução.", e);
+            throw new ExternalApiException("Erro de conectividade com o serviço de tradução.", e);
         }
     }
 
     private HttpHeaders createHeaders() {
-        final var headers = new HttpHeaders();
+        var headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         return headers;
     }
 
-    private TextResponse buildResponse(TextRequest request, LibreTranslateResponse response) {
-        final var sourceLanguage = (request.sourceLanguage() == Language.AUTO)
-                ? Language.fromLibreCode(response.detectedLanguage().language())
+    private TextResponse buildResponse(TextRequest request, LibreTranslateResponse apiResponse) {
+        // Resolve o idioma de origem: usa o detectado pela API se o original foi AUTO
+        Language resolvedSource = (request.sourceLanguage() == Language.AUTO)
+                ? Optional.ofNullable(apiResponse.detectedLanguage())
+                          .map(dl -> Language.fromLibreCode(dl.language()))
+                          .orElse(Language.AUTO)
                 : request.sourceLanguage();
 
         return new TextResponse(
                 request.text(),
-                response.translatedText(),
-                sourceLanguage,
+                apiResponse.translatedText(),
+                resolvedSource,
                 request.targetLanguage(),
-                null);
+                null // Áudio é processado em serviço/endpoint separado
+        );
     }
 }

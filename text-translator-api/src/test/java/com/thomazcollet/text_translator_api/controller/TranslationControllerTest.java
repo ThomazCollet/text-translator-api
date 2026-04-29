@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,68 +20,69 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thomazcollet.text_translator_api.dtos.TextRequest;
 import com.thomazcollet.text_translator_api.dtos.TextResponse;
 import com.thomazcollet.text_translator_api.enums.Language;
-import com.thomazcollet.text_translator_api.exception.InvalidTextException;
 import com.thomazcollet.text_translator_api.infra.handler.GlobalExceptionHandler;
 import com.thomazcollet.text_translator_api.service.TranslationService;
 
+/**
+ * Testes de integração da camada Web do tradutor.
+ * Valida o mapeamento de endpoints, serialização JSON e tratamento de exceções.
+ */
 @WebMvcTest(controllers = TranslationController.class)
 @Import(GlobalExceptionHandler.class)
+@DisplayName("Testes do Controller de Tradução")
 class TranslationControllerTest {
 
-        @MockitoBean
-        private TranslationService service;
+    @MockitoBean
+    private TranslationService service;
 
-        @Autowired
-        private MockMvc mockMvc;
+    @Autowired
+    private MockMvc mockMvc;
 
-        @Autowired
-        private ObjectMapper objectMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-        @Test
-        @DisplayName("Deve retornar 200 e a tradução correta")
-        void shouldReturnOkWhenTranslationIsSuccessful() throws Exception {
-                var request = new TextRequest("Hello", Language.EN, Language.PT_BR);
-                var response = new TextResponse("Hello", "Olá", Language.EN, Language.PT_BR, null);
-                when(service.translate(any())).thenReturn(response);
+    @Test
+    @DisplayName("Deve retornar 200 e a tradução correta quando os dados são válidos")
+    void shouldReturnOkWhenTranslationIsSuccessful() throws Exception {
+        var request = new TextRequest("Hello", Language.EN, Language.PT_BR);
+        var response = new TextResponse("Hello", "Olá", Language.EN, Language.PT_BR, null);
+        
+        when(service.translate(any(TextRequest.class))).thenReturn(response);
 
-                mockMvc.perform(post("/translate")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.translatedText").value("Olá"));
-        }
+        mockMvc.perform(post("/translate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.translatedText").value("Olá"))
+                .andExpect(jsonPath("$.sourceLanguage").value("EN"));
+    }
 
-        @Disabled("Erro de proxy no MockMvc - Handler funcional em produção")
-        @Test
-        @DisplayName("Deve retornar 400 quando o texto for inválido")
-        void shouldReturnBadRequestWhenTextIsInvalid() throws Exception {
-                var request = new TextRequest("", Language.EN, Language.PT_BR);
-                String msg = "O texto para tradução não pode estar vazio.";
+    @Test
+    @DisplayName("Deve retornar 400 quando a validação do Bean Validation falhar (texto vazio)")
+    void shouldReturnBadRequestWhenBeanValidationFails() throws Exception {
+        // Texto vazio aciona o @NotBlank no TextRequest
+        var request = new TextRequest("", Language.EN, Language.PT_BR);
 
-                // Usando doThrow para garantir que a exceção seja disparada sem ambiguidades
-                doThrow(new InvalidTextException(msg)).when(service).translate(any());
+        mockMvc.perform(post("/translate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists()); 
+                // Aqui o Spring valida ANTES de chamar o service.
+    }
 
-                mockMvc.perform(post("/translate")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                                .andDo(org.springframework.test.web.servlet.result.MockMvcResultHandlers.print())
-                                .andExpect(status().isBadRequest())
-                                .andExpect(jsonPath("$.message").value(msg));
-        }
+    @Test
+    @DisplayName("Deve retornar 500 quando ocorrer uma falha inesperada no sistema")
+    void shouldReturnInternalServerErrorOnSystemFailure() throws Exception {
+        var request = new TextRequest("Hello", Language.EN, Language.PT_BR);
 
-        @Test
-        @DisplayName("Deve retornar 500 em falhas inesperadas")
-        void shouldReturnInternalServerError() throws Exception {
-                var request = new TextRequest("Hello", Language.EN, Language.PT_BR);
+        doThrow(new RuntimeException("Falha catastrófica")).when(service).translate(any());
 
-                doThrow(new RuntimeException("Bug!")).when(service).translate(any());
-
-                mockMvc.perform(post("/translate")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isInternalServerError())
-                                .andExpect(jsonPath("$.status").value(500))
-                                .andExpect(jsonPath("$.message")
-                                                .value("Ocorreu um erro interno inesperado. Por favor, tente novamente mais tarde."));
-        }
+        mockMvc.perform(post("/translate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.message").value("Ocorreu um erro interno inesperado. Por favor, tente novamente mais tarde."));
+    }
 }
