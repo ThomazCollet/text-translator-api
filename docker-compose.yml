@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Orquestração da API Java Spring Boot
+  backend:
+    build:
+      context: ./text-translator-api
+    container_name: translator_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_HOST=redis
+      # Usando o IP padrão do gateway do Docker para garantir a comunicação com o Host
+      - LIBRETRANSLATE_URL=http://172.17.0.1:5000/translate
+      - VOICERSS_KEY=c8adaa59feec400dbeee5251777f1ec7
+    depends_on:
+      - redis
+      - libretranslate
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Interface Web servida via Nginx
+  frontend:
+    build:
+      context: ./text-translator-web
+    container_name: translator_web
+    restart: unless-stopped
+    ports:
+      - "5500:80"
+    depends_on:
+      - backend
+
+  # Engine de tradução local (LibreTranslate)
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: libretranslate
+    restart: unless-stopped
+    network_mode: "host"
+    environment:
+      - LT_UPDATE_MODELS=true
+      - LT_LOAD_ONLY=en,pt
+      - LT_SUGGEST_PROXPN_INSTALL=false
+      - LT_HOST=0.0.0.0
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local:rw
+
+  # Camada de persistência em cache (Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: translator_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+
+volumes:
+  libretranslate_models:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1300
