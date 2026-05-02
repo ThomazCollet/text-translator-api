@@ -2,10 +2,14 @@ package com.thomazcollet.text_translator_api.enums;
 
 import com.thomazcollet.text_translator_api.exception.LanguageNotSupportedException;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Define os idiomas suportados pela aplicação e seus respectivos códigos
  * para integração com APIs de tradução e síntese de voz.
  */
+
+@Schema(description = "Códigos de idioma suportados (ISO 639-1)", enumAsRef = true)
 public enum Language {
     AUTO("auto", "auto"),
     EN("en", "en-us"),
@@ -14,7 +18,7 @@ public enum Language {
 
     private final String libreCode;
     private final String voiceRssCode;
-
+    
     Language(String libreCode, String voiceRssCode) {
         this.libreCode = libreCode;
         this.voiceRssCode = voiceRssCode;

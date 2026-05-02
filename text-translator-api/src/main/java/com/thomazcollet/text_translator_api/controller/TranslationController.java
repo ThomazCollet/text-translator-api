@@ -10,6 +10,10 @@ import com.thomazcollet.text_translator_api.dtos.TextRequest;
 import com.thomazcollet.text_translator_api.dtos.TextResponse;
 import com.thomazcollet.text_translator_api.service.TranslationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
@@ -20,6 +24,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/translate")
+@Tag(name = "Translation", description = "Endpoints para processamento linguístico e tradução de textos")
 public class TranslationController {
 
     private final TranslationService translationService;
@@ -27,6 +32,12 @@ public class TranslationController {
     public TranslationController(TranslationService translationService) {
         this.translationService = translationService;
     }
+
+    @Operation(summary = "Executa a tradução de um texto", description = "Processa a tradução entre idiomas suportados. Implementa estratégia de 'Bridge' (via EN) para idiomas periféricos e cache distribuído via Redis para otimização de performance.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Tradução processada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados de requisição inválidos ou texto vazio"),
+            @ApiResponse(responseCode = "500", description = "Erro de conectividade com o motor de tradução externo") })
 
     /**
      * Processa solicitações de tradução de texto.
