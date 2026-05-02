@@ -6,6 +6,8 @@
 ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=F7DF1E)
 ![HTML5](https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/css3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white)
+![Status](https://img.shields.io/badge/STATUS-CONCLU%C3%8DDO-brightgreen?style=for-the-badge)
+![Versão](https://img.shields.io/badge/VERS%C3%83O-1.0-blue?style=for-the-badge)
 
 ![Interface do BridgeTranslate](assets/images/main-interface.png)
 *Interface principal limpa e responsiva, focada na experiência do usuário.*
@@ -14,6 +16,11 @@
 O BridgeTranslate é um ecossistema completo de tradução desenvolvido com intuito educacional para aplicar conhecimentos e demonstrar habilidades em Java Spring Boot, orquestração de infraestrutura com Docker e integração de serviços de alto desempenho.
 
 A aplicação permite tradução instantânea e síntese de voz (TTS) entre Português, Inglês e Espanhol, utilizando um motor de tradução self-hosted para reduzir a dependência de APIs externas pagas.
+
+
+### Demonstração em Ação
+![Demonstração do BridgeTranslate](assets/gif/preview2.gif)
+*Exemplo de tradução em tempo real*
 
 ---
 
@@ -61,7 +68,7 @@ Para mais detalhes sobre este e outros projetos de Engenharia de Software:
 
 * **LinkedIn:** [linkedin.com/in/thomaz-collet](https://www.linkedin.com/in/thomaz-collet)
 * **GitHub:** [github.com/ThomazCollet](https://github.com/ThomazCollet)
-* **Portfólio Pessoal:** [Link do seu Site Portfólio Aqui]
+* **Portfólio Pessoal:** [https://thomazcollet.github.io/Portfolio-trabalho/](https://thomazcollet.github.io/Portfolio-trabalho)
 
 ---
 
