@@ -66,10 +66,9 @@ O projeto foi desenhado para ser portável e de fácil inicialização.
 
 Para mais detalhes sobre este e outros projetos de Engenharia de Software:
 
-* **LinkedIn:** [linkedin.com/in/thomaz-collet](https://www.linkedin.com/in/thomaz-collet)
-* **GitHub:** [github.com/ThomazCollet](https://github.com/ThomazCollet)
-* **Portfólio Pessoal:** [https://thomazcollet.github.io/Portfolio-trabalho/](https://thomazcollet.github.io/Portfolio-trabalho)
-
+* **LinkedIn:** <a href="https://www.linkedin.com/in/thomaz-collet" target="_blank">linkedin.com/in/thomaz-collet</a>
+* **GitHub:** <a href="https://github.com/ThomazCollet" target="_blank">github.com/ThomazCollet</a>
+* **Portfólio Pessoal:** <a href="https://thomazcollet.github.io/Portfolio-trabalho/" target="_blank">thomazcollet.github.io/Portfolio-trabalho</a>
 ---
 
 ### 📄 Licença
