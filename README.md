@@ -20,7 +20,7 @@ A aplicação permite tradução instantânea e síntese de voz (TTS) entre Port
 
 ### Demonstração em Ação
 ![Demonstração do BridgeTranslate](assets/gif/preview2.gif)
-*Exemplo de tradução em tempo real*
+*Exemplo de tradução em tempo real. Clique para reproduzir!*
 
 ---
 
